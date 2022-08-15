@@ -1,29 +1,23 @@
 import pandas as pd
 import numpy as np
-
+from utils.auxiliary import class_dist
+import pdb
 # it is not working
-def EMQ(tr_prev, posterior_probabilities, epsilon = 1e-4):
-    Px = posterior_probabilities
-    Ptr = np.copy(tr_prev)
-    qs = np.copy(Ptr)  # qs (the running estimate) is initialized as the training prevalence
+def EMQ(test_scores, tr_dist, max_it = 1000, eps = 1e-6):
+    p_tr = tr_dist
+    p_s = np.copy(p_tr)
+    p_cond_tr = np.array(test_scores)
+    p_cond_s = np.zeros(p_cond_tr.shape)
+    
+    for it in range(max_it):
+        r = p_s / p_tr
+        p_cond_s = p_cond_tr * r
+        s = np.sum(p_cond_s, axis = 1)
+        for c in range(0,len(tr_dist)):
+            p_cond_s[:,c] = p_cond_s[:,c] / s
+        p_s_old = np.copy(p_s)
+        p_s = np.sum(p_cond_s, axis = 0) / p_cond_s.shape[0]
+        if (np.sum(np.abs(p_s - p_s_old)) < eps):
+            break
 
-    s, converged = 0, False
-    qs_prev_ = None
-    while not converged and s < 5:
-
-        # E-step: ps is Ps(y|xi)
-        ps_unnormalized = (qs / Ptr) * Px    
-        ps = ps_unnormalized / ps_unnormalized.sum(axis=1, keepdims=True)
-
-        # M-step:
-        qs = ps.mean(axis=0)
-        if qs_prev_ is not None and np.mean(abs(qs-qs_prev_)) < epsilon and s > 10:
-            converged = True
-
-        qs_prev_ = qs
-        s += 1
-
-    #if not converged:
-    #    print('[warning] the method has reached the maximum number of iterations; it might have not converged')
-
-    return qs[1]
+    return(p_s/np.sum(p_s))

@@ -22,7 +22,7 @@ from quantifiers.DySyn_dev import DySyn_aMoSS_D
 import pandas as pd
 import numpy as np
 
-
+import pdb
 """This function is an interface for running different quantification methods.
  
 Parameters
@@ -47,7 +47,7 @@ Returns
 array
     the class distribution of the test calculated according to the qntMethod quantifier. 
  """
-def apply_quantifier(qntMethod, p_score, n_score,test_score, TprFpr, thr, measure, calib_clf, X_test, u_p, u_n, adj_score=False):
+def apply_quantifier(qntMethod, p_score, n_score, test_score, TprFpr, thr, measure, calib_clf, X_test, u_p, u_n, adj_score=False):
   if qntMethod == "CC":
     return CC(test_score, thr)
   if qntMethod == "ACC":        
@@ -56,8 +56,8 @@ def apply_quantifier(qntMethod, p_score, n_score,test_score, TprFpr, thr, measur
     tr_dist = [len(p_score), len(n_score)]
     tr_dist = np.round(tr_dist/np.sum(tr_dist),4)
     test_score = pd.concat([pd.DataFrame(test_score), pd.DataFrame(1-test_score)], axis=1)
-    test_score.columns = ['1', '0']
-    return EMQ(tr_dist, np.array(test_score))
+    #test_score.columns = ['1', '0']
+    return EMQ(np.array(test_score), tr_dist)
   if qntMethod == "SMM":
     return SMM(p_score, n_score, test_score)
   if qntMethod == "HDy":
@@ -95,3 +95,22 @@ def apply_quantifier(qntMethod, p_score, n_score,test_score, TprFpr, thr, measur
     return PACC(calib_clf, X_test, TprFpr, thr)
   print('ERROR - '+ qntMethod + ' was not found!')
   return None
+
+
+from quantifiers.ensembleEMQ import ensembleEM
+from quantifiers.ensembleFM import ensembleFM
+from quantifiers.ensembleGAC import ensembleGAC
+from quantifiers.ensembleGPAC import ensembleGPAC
+
+
+
+def apply_ensemble_quantifier(qntMethod, X_test, list_clf, list_scores, y_train):
+
+  if qntMethod == 'e_EMQ':
+    return ensembleEM(X_test, list_clf, y_train)
+  if qntMethod == 'e_FM':
+    return ensembleFM(X_test, list_clf, list_scores)
+  if qntMethod == 'e_GAC':
+    return ensembleGAC(X_test, list_clf, list_scores)
+  if qntMethod == 'e_GPAC':
+    return ensembleGPAC(X_test, list_clf, list_scores)

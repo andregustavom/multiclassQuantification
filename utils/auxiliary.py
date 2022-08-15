@@ -3,12 +3,27 @@ from sklearn.model_selection import StratifiedKFold
 import pandas as pd
 import importlib
 from collections import Counter
+from sklearn import preprocessing
+
+from os import listdir
+from os.path import isfile, join
+
+import os.path
+import pickle
+
+
+from sklearn import svm
+
+from copy import deepcopy
+
+from sklearn.linear_model import RidgeClassifier
 
 import helpers
 
+
 import pdb
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 class Distances(object):
     
     def __init__(self,P,Q):
@@ -39,7 +54,7 @@ class Distances(object):
         P=self.P; Q=self.Q
         return 2 * np.sqrt(1 - sum(np.sqrt(P * Q)))
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 def DyS_distance(sc_1, sc_2, measure='topsoe'):
     
     dist = Distances(sc_1, sc_2)
@@ -55,7 +70,7 @@ def DyS_distance(sc_1, sc_2, measure='topsoe'):
     print("Error, unknown distance specified, returning topsoe")
     return dist.topsoe()
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 def TernarySearch(left, right, f, eps=1e-4):
 
     while True:
@@ -70,7 +85,7 @@ def TernarySearch(left, right, f, eps=1e-4):
         else:
             right = rightThird 
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 def getHist(scores, nbins):
     breaks = np.linspace(0, 1, int(nbins)+1)
     breaks = np.delete(breaks, -1)
@@ -81,7 +96,15 @@ def getHist(scores, nbins):
         re[i-1] = (re[i-1] + len(np.where((scores >= breaks[i-1]) & (scores < breaks[i]))[0]) ) / (len(scores)+1)
     return re
 
+#------------------------------------------------------------------------------------------------------------------------------
+def class_dist(Y, nclasses):
+    return np.array([np.count_nonzero(Y == i) for i in range(nclasses)]) / Y.shape[0]
 
+
+#------------------------------------------------------------------------------------------------------------------------------
+def class2index(labels, classes):
+    return np.array([classes.index(labels[i]) for i in range(labels.shape[0])])
+#------------------------------------------------------------------------------------------------------------------------------
 # Requires some adjustments
 def getTPRandFPRbyThreshold (validation_scores):
     unique_scores = np.arange(0,1,0.01)
@@ -101,7 +124,7 @@ def getTPRandFPRbyThreshold (validation_scores):
 
     return arrayOfTPRandFPRByTr
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 def getScores(dt, label, folds, clf, proba=True):
     
     skf = StratifiedKFold(n_splits=folds)    
@@ -126,7 +149,7 @@ def getScores(dt, label, folds, clf, proba=True):
     
     return scores
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 def load_data(path="./data/", dts="concrete"):
     prep_file = path + dts + "/prep.py"
     spec = importlib.util.spec_from_file_location("prep", prep_file)
@@ -134,6 +157,8 @@ def load_data(path="./data/", dts="concrete"):
     spec.loader.exec_module(prep)
        
     return prep.prep_data()
+
+#------------------------------------------------------------------------------------------------------------------------------
 
 def get_batch (label, alpha, X_test, y_test, n):
     
@@ -166,7 +191,8 @@ def get_batch (label, alpha, X_test, y_test, n):
     dist_neg = np.array(dist_neg*(1-alpha))     
     dist_cl = np.append(dist_neg, alpha)[np.argsort(np.append(np.unique(neg_labels), label))]   
     return test, np.append(np.array(neg_n), np.array(y_pos)), dist_cl
-    
+
+#------------------------------------------------------------------------------------------------------------------------------    
 """This function fit a quantifier using the codes provided by Tobias Schumacher.
  
 Parameters
@@ -203,7 +229,7 @@ def fit_quantifier_schumacher_github(qntMethod, X_train, y_train):
 
     return qf   
 
-
+#------------------------------------------------------------------------------------------------------------------------------
 """This function predict the class distribution from a given test set.
  
 Parameters
@@ -219,3 +245,111 @@ array
  """
 def predict_quantifier_schumacher_github(qnt, X_test):
     return qnt.predict(*[np.asarray(X_test)])
+
+#------------------------------------------------------------------------------------------------------------------------------
+# BEGIN - Load fitted quantifiers or fit them. Finally save them (NOTE: only for T. Schumacher codes)
+def fit_quantifiers_SCH(l_trained_qnt, list_sch, X_train, y_train):
+    
+    quantifier_added = False
+    if l_trained_qnt is not None:
+        for qnt in list_sch:
+            counter = str.split(qnt, 'SCH_')[1]            
+            if counter not in [ co['counter'] for co in l_trained_qnt]:                
+                qnt_sch = fit_quantifier_schumacher_github(counter, X_train, y_train)
+                l_trained_qnt.append({"counter":counter, "model": qnt_sch})
+                print('Treinou!')
+                quantifier_added = True
+        
+        return l_trained_qnt, quantifier_added
+        
+    else:
+        for qnt in list_sch:
+            counter = str.split(qnt, 'SCH_')[1]            
+            qnt_sch = fit_quantifier_schumacher_github(counter, X_train, y_train)
+            l_trained_qnt.append({"counter":counter, "model": qnt_sch})
+        return l_trained_qnt
+#------------------------------------------------------------------------------------------------------------------------------
+def load_and_fit_schumacher_quantifiers(X_train, y_train, counters, path_dts, model_setup, clf_name='SVC'):    
+    list_sch = [match for match in counters if "SCH_" in match]  
+    if len(list_sch) > 0:
+        l_qnt_sch = []
+    else:
+        return None
+    if os.path.isfile(path_dts+'schumacher/'+model_setup+'_'+ clf_name +'_sch_models.sav') is True:
+        l_qnt_sch = pickle.load(open(path_dts+'schumacher/'+model_setup+'_'+ clf_name +'_sch_models.sav', 'rb'))
+        print('Schumacher quantifiers loaded ')
+    
+    #list_existing = [x['counter'] for x in l_qnt_sch]
+    l_qnt_sch, quantifier_added = fit_quantifiers_SCH(l_qnt_sch, list_sch, X_train, y_train)
+    if quantifier_added:
+        pickle.dump(l_qnt_sch, open(path_dts+'schumacher/'+model_setup+'_'+ clf_name +'_sch_models.sav', 'wb'))
+    return l_qnt_sch
+  # END - Load fitted quantifiers or fit them        
+
+#------------------------------------------------------------------------------------------------------------------------------
+def load_and_fit_quantifiers_binary(X_train, y_train, allow_proba, model_setup, n_classes, clf, path_dts, clf_name):
+
+  if os.path.isfile(path_dts+'binary/'+model_setup+'_'+clf_name+'_models_bin.sav') is False:
+    models = []
+    l_scores = []
+    
+    lbin = preprocessing.LabelBinarizer()
+    y_bin = lbin.fit_transform(y_train)
+    for ci in range(0,n_classes):      
+      clf.fit(X_train, y_bin[:,ci])
+      models.append(deepcopy(clf))
+      l_scores.append(getScores(X_train, y_bin[:,ci], 10, clf, allow_proba))
+      #l_train.append(X_train)
+      #l_ytrain.append(y_bin[:,ci])      
+
+    pickle.dump(models, open(path_dts+'binary/'+model_setup+'_'+clf_name+'_models_bin.sav', 'wb')) # Loading fitted models
+    pickle.dump(l_scores, open(path_dts+'binary/'+model_setup+'_'+clf_name+'_list_scores_bin.sav', 'wb')) # Loading scores
+    #pickle.dump(l_train, open(path_dts+'l_train.sav', 'wb')) # Loading training partition
+    #pickle.dump(l_ytrain, open(path_dts+'l_ytrain.sav', 'wb')) # Loading labels from training partition
+  else:
+    models = pickle.load(open(path_dts+'binary/'+model_setup+'_'+clf_name+'_models_bin.sav', 'rb'))
+    l_scores = pickle.load(open(path_dts+'binary/'+model_setup+'_'+clf_name+'_list_scores_bin.sav', 'rb'))
+    print('OVR classifiers loaded!')
+    #l_train = pickle.load(open(path_dts+'l_train.sav', 'rb'))
+    #l_ytrain = pickle.load(open(path_dts+'l_ytrain.sav', 'rb')) 
+
+  return models, l_scores
+
+#------------------------------------------------------------------------------------------------------------------------------
+def load_and_fit_quantifiers_multiclass(X_train, y_train, model_setup, clf, path_dts, clf_name):
+  if os.path.isfile(path_dts+'multiclass/'+model_setup+'_'+clf_name+'_models_MC.sav') is False:
+    print('Estimating scorer and scores for multiclass setup')
+    clf.fit(X_train, y_train)
+    Y_cts = np.unique(y_train, return_counts=True)
+    nfolds = min(10, min(Y_cts[1]))
+    
+    train_scores = np.zeros((len(X_train), len(np.unique(y_train))))
+    train_labels = np.zeros(len(X_train))
+
+    classes = np.sort(np.unique(y_train))
+
+    model = deepcopy(clf)   
+    if nfolds > 1:
+        kfold = StratifiedKFold(n_splits=nfolds, random_state=1, shuffle=True)
+        for train, test in kfold.split(X_train, y_train):
+            model.fit(X_train[train], y_train[train])
+            train_scores[test] = model.predict_proba(X_train)[test]
+            train_labels[test] = np.int0(y_train[test])
+
+        scr = pd.DataFrame(train_scores, columns= classes)
+        scr_labl = pd.DataFrame(train_labels, columns= ["label"])
+        scores = pd.concat([scr,scr_labl], axis = 1, ignore_index= False)
+    else:
+        train_scores[test] = clf.predict_proba(X_train)
+        train_labels[test] = np.int0(y_train)
+        scr = pd.DataFrame(train_scores, columns= classes)
+        scr_labl = pd.DataFrame(train_labels, columns= ["label"])
+        scores = pd.concat([scr, scr_labl], axis = 1, ignore_index= False) 
+
+    pickle.dump(scores, open(path_dts+'multiclass/'+model_setup+'_'+clf_name+'_scores_MC.sav', 'wb')) # Loading fitted models
+    pickle.dump(clf, open(path_dts+'multiclass/'+model_setup+'_'+clf_name+'_models_MC.sav', 'wb')) # Loading fitted models    
+  else:
+    print(clf_name + ' loaded!')
+    clf = pickle.load(open(path_dts+'multiclass/'+model_setup+'_'+clf_name+'_models_MC.sav', 'rb'))
+    scores = pickle.load(open(path_dts+'multiclass/'+model_setup+'_'+clf_name+'_scores_MC.sav', 'rb'))
+  return clf, scores

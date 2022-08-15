@@ -38,7 +38,7 @@ music;music;https://archive.ics.uci.edu/ml/machine-learning-databases/00315/Geog
 musk;musk;https://archive.ics.uci.edu/ml/machine-learning-databases/musk/;att167;2;0;0;166;6598;[0,1];[5581,1017]
 news_popularity;news;https://archive.ics.uci.edu/ml/machine-learning-databases/00332/OnlineNewsPopularity.zip;shares;4;0;1;60;39644;[1,2,3,4];[12424, 16354,  5794,  5072]
 news_popularity_binary;news;https://archive.ics.uci.edu/ml/machine-learning-databases/00332/OnlineNewsPopularity.zip;shares;2;0;1;60;39644;[0,1];[12424,27220]
-nursery;nurse;https://archive.ics.uci.edu/ml/machine-learning-databases/nursery/nursery.data;att9;3;1;0;27;12960;[0,1,2];[4320,4596,4044]
+nursery;nurse;https://archive.ics.uci.edu/ml/machine-learning-databases/nursery/nursery.data;label;3;1;0;27;12960;[0,1,2];[4320,4596,4044]
 nursery_binary;nurse;https://archive.ics.uci.edu/ml/machine-learning-databases/nursery/nursery.data;att9;2;1;0;27;12960;[0,1];[4320,8640]
 occupancy;occup;https://archive.ics.uci.edu/ml/machine-learning-databases/00357/occupancy_data.zip;Occupancy;2;0;1;5;20560;[0,1];[15810,4750]
 phishing;phish;https://archive.ics.uci.edu/ml/machine-learning-databases/00327/Training%20Dataset.arff;Result;2;1;0;31;11055;[-1,1];[4898, 6157]
